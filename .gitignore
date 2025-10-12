@@ -42,6 +42,7 @@
 *.tab.[ch]
 *.tar
 *.xz
+*Zone.Identifier
 Module.symvers
 modules.builtin
 
