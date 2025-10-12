@@ -31,7 +31,7 @@ color_echo "$green" "工作目录: $SCRIPT_DIR"
 # 参数处理
 TARGET_DEVICE=""
 KERNEL_NAME="Nijika"
-KERNEL_VERSION="v2.0-RC1"
+KERNEL_VERSION="v2.0-RC2"
 FIX_VERSION="2"
 USE_KSU=true       # 默认启用 KSU
 CCACHE_ENABLED=true
@@ -251,10 +251,13 @@ DTB_PATH="$BUILD_DIR/arch/arm64/boot/dtb"
 color_echo "$green" "生成DTB文件 [$DTB_PATH]..."
 find "$BUILD_DIR/arch/arm64/boot/dts" -name '*.dtb' -exec cat {} + > "$DTB_PATH"
 
+DTBO_PATH="$BUILD_DIR/arch/arm64/boot/dtbo.img"
+
 ANY_KERNEL_DIR="$SCRIPT_DIR/anykernel"
 
-cp "$IMAGE_PATH" "$ANY_KERNEL_DIR/kernels"
-cp "$DTB_PATH" "$ANY_KERNEL_DIR/kernels"
+cp "$IMAGE_PATH" "$ANY_KERNEL_DIR"
+cp "$DTB_PATH" "$ANY_KERNEL_DIR"
+cp "$DTBO_PATH" "$ANY_KERNEL_DIR"
 
 # 创建ZIP文件名
 KSU_STR=$($USE_KSU && echo "SU" || echo "NoSU")
