@@ -32,7 +32,7 @@ color_echo "$green" "工作目录: $SCRIPT_DIR"
 TARGET_DEVICE=""
 KERNEL_NAME="Nijika"
 KERNEL_VERSION="v2.0-RC2"
-FIX_VERSION="2"
+FIX_VERSION="6"
 USE_KSU=true       # 默认启用 KSU
 CCACHE_ENABLED=true
 NO_CLEAN=false
