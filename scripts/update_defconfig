@@ -15,7 +15,9 @@ export KERNEL_CFG
 export OUT_DIR
 
 # Set compiler PATH
-PATH=$HOME/gas:$HOME/clang/bin:$PATH
+CLANG_PATH=${CLANG_PATH:-$HOME/build_toolchain/clang-r522817/bin}
+GAS_PATH=${GAS_PATH:-$HOME/gas}
+PATH=${GAS_PATH}:${CLANG_PATH}:$PATH
 
 BUILD="make O=$OUT_DIR \
 ARCH=arm64 \
