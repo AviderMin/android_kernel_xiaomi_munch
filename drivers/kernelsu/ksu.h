@@ -24,6 +24,11 @@
 #define CMD_IS_SU_ENABLED 14
 #define CMD_ENABLE_SU 15
 
+#ifdef CONFIG_KSU_MANUAL_SU
+#define CMD_SU_ESCALATION_REQUEST 50
+#define CMD_ADD_PENDING_ROOT 51
+#endif
+
 #define CMD_GET_FULL_VERSION 0xC0FFEE1A
 
 #define CMD_ENABLE_KPM 100
@@ -43,7 +48,7 @@
 #define KSU_SELINUX_DOMAIN 64
 
 // SukiSU Ultra kernel su version full strings
-#ifndef KSU_VERSION_FULL
+#ifndef KSU_VERSION_FULL 
 #define KSU_VERSION_FULL "v3.x-00000000@unknown"
 #endif
 #define KSU_FULL_VERSION_STRING 255
@@ -53,17 +58,17 @@
 #define DYNAMIC_MANAGER_OP_CLEAR 2
 
 struct dynamic_manager_user_config {
-	unsigned int operation;
-	unsigned int size;
-	char hash[65];
+    unsigned int operation;
+    unsigned int size;
+    char hash[65];
 };
 
 struct manager_list_info {
-	int count;
-	struct {
-		uid_t uid;
-		int signature_index;
-	} managers[2];
+    int count;
+    struct {
+        uid_t uid;
+        int signature_index;
+    } managers[2];
 };
 
 struct root_profile {

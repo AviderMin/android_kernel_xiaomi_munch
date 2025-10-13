@@ -64,6 +64,10 @@ bool ksu_input_hook __read_mostly = true;
 #endif
 bool ksu_execveat_hook __read_mostly = true;
 
+#ifdef CONFIG_KSU_SUSFS_SUS_SU
+bool susfs_is_sus_su_ready = false;
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
+
 u32 ksu_devpts_sid;
 
 // Detect whether it is on or not
@@ -85,8 +89,8 @@ void on_post_fs_data(void)
 	ksu_devpts_sid = ksu_get_devpts_sid();
 	pr_info("devpts sid: %d\n", ksu_devpts_sid);
 
-	// End of boot state
-	is_boot_phase = false;
+    // End of boot state
+    is_boot_phase = false;
 }
 
 struct user_arg_ptr {
@@ -414,7 +418,7 @@ int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code,
 	if (*type == EV_KEY && *code == KEY_VOLUMEDOWN) {
 		int val = *value;
 		pr_info("KEY_VOLUMEDOWN val: %d\n", val);
-		if (val && is_boot_phase) {
+        if (val && is_boot_phase) {
 			// key pressed, count it
 			volumedown_pressed_count += 1;
 			if (is_volumedown_enough(volumedown_pressed_count)) {
@@ -618,12 +622,12 @@ static void do_stop_input_hook(struct work_struct *work)
 }
 #else
 static int ksu_execve_ksud_common(const char __user *filename_user,
-				  struct user_arg_ptr *argv)
+			struct user_arg_ptr *argv)
 {
 	struct filename filename_in, *filename_p;
 	char path[32];
 	long len;
-
+	
 	// return early if disabled.
 	if (!ksu_execveat_hook) {
 		return 0;
@@ -642,21 +646,19 @@ static int ksu_execve_ksud_common(const char __user *filename_user,
 	filename_in.name = path;
 	filename_p = &filename_in;
 
-	return ksu_handle_execveat_ksud(AT_FDCWD, &filename_p, argv, NULL,
-					NULL);
+	return ksu_handle_execveat_ksud(AT_FDCWD, &filename_p, argv, NULL, NULL);
 }
 
-int __maybe_unused
-ksu_handle_execve_ksud(const char __user *filename_user,
-		       const char __user *const __user *__argv)
+int __maybe_unused ksu_handle_execve_ksud(const char __user *filename_user,
+			const char __user *const __user *__argv)
 {
 	struct user_arg_ptr argv = { .ptr.native = __argv };
 	return ksu_execve_ksud_common(filename_user, &argv);
 }
 
 #if defined(CONFIG_COMPAT) && defined(CONFIG_64BIT)
-int __maybe_unused ksu_handle_compat_execve_ksud(
-	const char __user *filename_user, const compat_uptr_t __user *__argv)
+int __maybe_unused ksu_handle_compat_execve_ksud(const char __user *filename_user,
+			const compat_uptr_t __user *__argv)
 {
 	struct user_arg_ptr argv = { .ptr.compat = __argv };
 	return ksu_execve_ksud_common(filename_user, &argv);
@@ -685,6 +687,10 @@ static void stop_execve_hook(void)
 	pr_info("stop execve_hook\n");
 	ksu_execveat_hook = false;
 #endif
+#ifdef CONFIG_KSU_SUSFS_SUS_SU
+    susfs_is_sus_su_ready = true;
+    pr_info("susfs: sus_su is ready\n");
+#endif
 }
 
 static void stop_input_hook(void)
@@ -698,9 +704,7 @@ static void stop_input_hook(void)
 	bool ret = schedule_work(&stop_input_hook_work);
 	pr_info("unregister input kprobe: %d!\n", ret);
 #else
-	if (!ksu_input_hook) {
-		return;
-	}
+	if (!ksu_input_hook) { return; }
 	ksu_input_hook = false;
 	pr_info("stop input_hook\n");
 #endif
@@ -734,7 +738,7 @@ void ksu_ksud_exit(void)
 	// this should be done before unregister vfs_read_kp
 	// unregister_kprobe(&vfs_read_kp);
 	unregister_kprobe(&input_event_kp);
-
-	is_boot_phase = false;
 #endif
+	is_boot_phase = false;
+    volumedown_pressed_count = 0;
 }

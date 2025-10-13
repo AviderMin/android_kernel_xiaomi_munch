@@ -8,6 +8,9 @@ kernelsu-objs += ksud.o
 kernelsu-objs += embed_ksud.o
 kernelsu-objs += kernel_compat.o
 kernelsu-objs += throne_comm.o
+ifeq ($(CONFIG_KSU_MANUAL_SU), y)
+kernelsu-objs += manual_su.o
+endif
 
 ifeq ($(CONFIG_KSU_TRACEPOINT_HOOK), y)
 kernelsu-objs += ksu_trace.o
@@ -84,13 +87,44 @@ endif
 ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
 ccflags-y += -DKSU_VERSION_FULL=\"$(KSU_VERSION_FULL)\"
 
-# Checks hooks state
 ifeq ($(CONFIG_KSU_KPROBES_HOOK), y)
 $(info -- SukiSU: CONFIG_KSU_KPROBES_HOOK)
 else ifeq ($(CONFIG_KSU_TRACEPOINT_HOOK), y)
 $(info -- SukiSU: CONFIG_KSU_TRACEPOINT_HOOK)
 else ifeq ($(CONFIG_KSU_MANUAL_HOOK), y)
 $(info -- SukiSU: CONFIG_KSU_MANUAL_HOOK)
+endif
+
+KERNEL_VERSION := $(VERSION).$(PATCHLEVEL)
+KERNEL_TYPE := Non-GKI
+# Check for GKI 2.0 (5.10+ or 6.x+)
+ifneq ($(shell test \( $(VERSION) -ge 5 -a $(PATCHLEVEL) -ge 10 \) -o $(VERSION) -ge 6; echo $$?),0)
+# Check for GKI 1.0 (5.4)
+ifeq ($(shell test $(VERSION)-$(PATCHLEVEL) = 5-4; echo $$?),0)
+KERNEL_TYPE := GKI 1.0
+endif
+else
+KERNEL_TYPE := GKI 2.0
+endif
+$(info -- KERNEL_VERSION: $(KERNEL_VERSION))
+$(info -- KERNEL_TYPE: $(KERNEL_TYPE))
+
+# Check if KPM is enabled
+ifeq ($(CONFIG_KPM), y)
+$(info -- KPM is enabled)
+else
+$(info -- KPM is disabled)
+endif
+
+ifeq ($(CONFIG_KSU_MANUAL_SU), y)
+KSU_PW_POOL := abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+KSU_PW_LEN  := $(shell awk 'BEGIN{srand(); print int(rand()*9)+8}')
+KSU_SU_PASSWORD := $(shell \
+    tr -dc '$(KSU_PW_POOL)' </dev/urandom | head -c $(KSU_PW_LEN))
+
+ccflags-y += -DKSU_SU_PASSWORD=\"$(KSU_SU_PASSWORD)\"
+
+$(info -- KSU manual-su password : $(KSU_SU_PASSWORD))
 endif
 
 # SELinux drivers check
@@ -116,6 +150,10 @@ ccflags-y += -DKSU_OPTIONAL_SELINUX_INODE
 endif
 ifeq ($(shell grep -q "int\s\+path_umount" $(srctree)/fs/namespace.c; echo $$?),0)
 ccflags-y += -DKSU_HAS_PATH_UMOUNT
+ifneq ($(shell grep -Eq "^int path_umount" $(srctree)/fs/internal.h; echo $$?),0)
+$(shell sed -i '/^extern void __init mnt_init/a int path_umount(struct path *path, int flags);' $(srctree)/fs/internal.h;)
+$(info -- KernelSU: SusFS: Adding 'int path_umount(struct path *path, int flags);' to $(srctree)/fs/internal.h)
+endif
 endif
 # Checks Samsung UH drivers
 ifeq ($(shell grep -q "CONFIG_KDP_CRED" $(srctree)/kernel/cred.c; echo $$?),0)
@@ -143,6 +181,7 @@ ifdef KSU_EXPECTED_SIZE
 ccflags-y += -DEXPECTED_SIZE=$(KSU_EXPECTED_SIZE)
 $(info -- Custom KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))
 endif
+
 ifdef KSU_EXPECTED_HASH
 ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
 $(info -- Custom KernelSU Manager signature hash: $(KSU_EXPECTED_HASH))
@@ -153,30 +192,19 @@ ccflags-y += -DKSU_MANAGER_PACKAGE=\"$(KSU_MANAGER_PACKAGE)\"
 $(info -- SukiSU Manager package name: $(KSU_MANAGER_PACKAGE))
 endif
 
-$(info -- Supported Unofficial Manager: 5ec1cff (GKI) ShirkNeko udochina (GKI and KPM))
-# Kernel version check
-KERNEL_VERSION := $(VERSION).$(PATCHLEVEL)
-KERNEL_TYPE := Non-GKI
-# Check for GKI 2.0 (5.10+ or 6.x+)
-ifneq ($(shell test \( $(VERSION) -ge 5 -a $(PATCHLEVEL) -ge 10 \) -o $(VERSION) -ge 6; echo $$?),0)
-# Check for GKI 1.0 (5.4)
-ifeq ($(shell test $(VERSION)-$(PATCHLEVEL) = 5-4; echo $$?),0)
-KERNEL_TYPE := GKI 1.0
-endif
-else
-KERNEL_TYPE := GKI 2.0
-endif
-$(info -- KERNEL_VERSION: $(KERNEL_VERSION))
-$(info -- KERNEL_TYPE: $(KERNEL_TYPE))
-
-$(info -- KERNEL_VERSION: $(KERNEL_VERSION))
-ifeq ($(CONFIG_KPM), y)
-$(info -- KPM is enabled)
-else
-$(info -- KPM is disabled)
-endif
+$(info -- Supported Unofficial Manager: 5ec1cff (GKI) rsuntk (Non-GKI) ShirkNeko udochina (GKI and non-GKI and KPM))
 
 ccflags-y += -Wno-implicit-function-declaration -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat
 ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
+
+## For susfs stuff ##
+ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
+$(eval SUSFS_VERSION=$(shell cat $(srctree)/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g'))
+$(info )
+$(info -- SUSFS_VERSION: $(SUSFS_VERSION))
+else
+$(info -- You have not integrate susfs in your kernel.)
+$(info -- Read: https://gitlab.com/simonpunk/susfs4ksu)
+endif
 
 # Keep a new line here!! Because someone may append config
